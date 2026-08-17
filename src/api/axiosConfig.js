@@ -55,9 +55,9 @@ async function autoLogin() {
         const response = await axios.post(LOGIN_URL, ADMIN_ACCOUNT);
         currentAccessToken = response.data.access_token;
         localStorage.setItem('access_token', currentAccessToken);
-        console.log("✅ Đã lấy Access Token mới thành công.");
+        console.log(" Đã lấy Access Token mới thành công.");
     } catch (error) {
-        console.error("❌ Lỗi Auto Login:", error);
+        console.error(" Lỗi Auto Login:", error);
         currentAccessToken = null;
         localStorage.removeItem('access_token');
     }
