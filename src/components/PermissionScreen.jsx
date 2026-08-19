@@ -316,19 +316,25 @@ export default function PermissionScreen() {
           const dashName =
             DASHBOARD_LIST.find((d) => d.id === dashId)?.name || dashId
           try {
-            await apiClient.post(
-              `/services/ioc-metadata/api/assignments/${dashId}/assign`,
-              {
-                assignments: [
-                  {
-                    assigneeId: foundResourceId,
-                    assignee: email,
-                    perm: action === 'grant' ? Number(role) : 0,
-                    permType: 0,
-                  },
-                ],
-              }
-            )
+            if (action === 'grant') {
+              await apiClient.post(
+                `/services/ioc-metadata/api/assignments/${dashId}/assign`,
+                {
+                  assignments: [
+                    {
+                      assigneeId: foundResourceId,
+                      assignee: email,
+                      perm: Number(role),
+                      permType: 0,
+                    },
+                  ],
+                }
+              )
+            } else {
+              await apiClient.put(
+                `/services/ioc-metadata/api/assignments/${dashId}/assign/${foundResourceId}`
+              )
+            }
             return { dashName, status: 'success' }
           } catch (err) {
             return {
@@ -392,7 +398,7 @@ export default function PermissionScreen() {
   const verb = confirm?.action === 'revoke' ? 'GỠ QUYỀN' : 'CẤP QUYỀN'
 
   return (
-    <div className="flex flex-1 flex-col bg-gov-bg">
+    <div className="flex flex-1 flex-col overflow-hidden bg-gov-bg">
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
@@ -410,38 +416,6 @@ export default function PermissionScreen() {
         onCancel={() => setConfirm(null)}
       />
 
-      {/* ══ Banner phân hệ biểu mẫu ══ */}
-      <header className="relative overflow-hidden bg-gov-navy-deep text-white">
-        <div className="relative mx-auto flex max-w-[1600px] items-center gap-5 px-6 py-5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center border-2 border-gov-gold/70 bg-gov-navy">
-            <FileText className="h-8 w-8 text-gov-gold" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium tracking-[0.2em] text-white/60 uppercase">
-              Bộ Tư pháp — Trung tâm dữ liệu IOC
-            </p>
-            <h1 className="truncate text-lg font-bold tracking-wide text-white uppercase">
-              Phân quyền Biểu mẫu Báo cáo
-            </h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/50">
-              <Lock className="h-3 w-3" />
-              Kênh quản trị nội bộ — Mọi truy cập đều được ghi nhận và kiểm toán
-            </p>
-          </div>
-          <div className="hidden shrink-0 items-center gap-6 md:flex">
-            <div className="text-right">
-              <p className="flex items-center justify-end gap-1.5 text-[11px] tracking-wider text-white/60 uppercase">
-                <Activity className="h-3.5 w-3.5" /> Trạng thái hệ thống
-              </p>
-              <div className="mt-0.5 w-40"><ScanCanvas active={isProcessing} /></div>
-              <p className={`text-[11px] font-semibold ${isProcessing ? 'text-gov-gold' : 'text-green-400'}`}>
-                {isProcessing ? 'ĐANG THỰC THI...' : 'HOẠT ĐỘNG BÌNH THƯỜNG'}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="relative h-1 bg-gov-gold" />
-      </header>
 
       {/* ══ KPI strip ══ */}
       <section className="mx-auto grid w-full max-w-[1600px] grid-cols-2 gap-4 px-6 py-4 lg:grid-cols-4">
@@ -452,7 +426,7 @@ export default function PermissionScreen() {
       </section>
 
       {/* ══ Main: Danh sách (trái) — Chi tiết (phải) ══ */}
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-4 px-6 pb-6 lg:grid-cols-[minmax(380px,2fr)_minmax(420px,3fr)]">
+      <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-4 overflow-hidden px-6 pb-6 lg:grid-cols-[minmax(380px,2fr)_minmax(420px,3fr)]">
 
         {/* ── Trái: danh sách biểu mẫu ── */}
         <section className="flex flex-col border border-gray-200 bg-white shadow-sm">
