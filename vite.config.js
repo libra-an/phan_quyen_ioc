@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  base: './', // Bắt buộc khi Electron load bằng file://
   plugins: [react(), tailwindcss()],
   server: {
     open : true,

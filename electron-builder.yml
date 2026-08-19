@@ -1,0 +1,20 @@
+appId: com.ioc.react-web
+productName: IOC App
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+publish:
+  provider: github
+  owner: libra-an
+  repo: phan_quyen_ioc
+win:
+  target:
+    - nsis
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: IOC App

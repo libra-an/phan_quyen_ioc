@@ -1,11 +1,14 @@
 import axios from "axios";
 
+// Khi đóng gói Electron (file://) không có Vite proxy → dùng URL trực tiếp
+const isElectron = window.location.protocol === 'file:';
+
 const apiClient = axios.create({
-    baseURL: '/api-eioc', // Dùng Proxy
+    baseURL: isElectron ? 'https://kyta.fpt.com/eioc' : '/api-eioc',
     headers: { 'Content-Type': 'application/json' }
 });
 
-const LOGIN_URL = '/api-auth/auth/login'; // Dùng Proxy
+const LOGIN_URL = isElectron ? 'https://eaccount.kyta.fpt.com/auth/login' : '/api-auth/auth/login';
 
 const ADMIN_ACCOUNT = {
     username: "kyta.fpt.ioc@gmail.com",

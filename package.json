@@ -1,16 +1,23 @@
 {
   "name": "ioc-react-web",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.1.0",
+  "description": "Hệ thống Quản lý Phân quyền IOC",
+  "author": "libra-an",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "vite",
+    "electron:build": "vite build && electron-builder --win",
+    "electron:publish": "vite build && electron-builder --win --publish always"
   },
   "dependencies": {
     "axios": "^1.19.0",
+    "electron-updater": "^6.3.9",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
@@ -20,6 +27,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.0"

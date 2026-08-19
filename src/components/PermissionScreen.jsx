@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  Landmark, ShieldCheck, ShieldOff, FileText, Users, ScrollText,
+  ShieldCheck, ShieldOff, FileText, Users, ScrollText,
   Copy, Trash2, CheckCircle2, XCircle, AlertTriangle, Search,
   Lock, Activity, ListChecks, Mail, ChevronRight, BadgeCheck,
 } from 'lucide-react'
@@ -32,95 +32,6 @@ function parseDashboardItem(item) {
     }
   }
   return { code: item.id, label: item.name }
-}
-
-/* ══════════════ CANVAS: hạt + lưới navy trên header ══════════════ */
-function HeaderCanvas() {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let raf = 0
-    let w = 0, h = 0
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-
-    const resize = () => {
-      const r = canvas.parentElement.getBoundingClientRect()
-      w = r.width; h = r.height
-      canvas.width = w * dpr
-      canvas.height = h * dpr
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    }
-    resize()
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas.parentElement)
-
-    const N = 42
-    const nodes = Array.from({ length: N }, () => ({
-      x: Math.random(), y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.0006,
-      vy: (Math.random() - 0.5) * 0.0004,
-      r: Math.random() * 1.4 + 0.6,
-      gold: Math.random() < 0.18,
-    }))
-
-    const draw = (t) => {
-      ctx.clearRect(0, 0, w, h)
-
-      // lưới tọa độ mờ — gợi hệ quy chiếu bản đồ hành chính
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)'
-      ctx.lineWidth = 1
-      const step = 44
-      const off = (t * 0.008) % step
-      for (let x = -off; x < w; x += step) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke()
-      }
-      for (let y = -off; y < h; y += step) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
-      }
-
-      for (const n of nodes) {
-        n.x += n.vx; n.y += n.vy
-        if (n.x < 0 || n.x > 1) n.vx *= -1
-        if (n.y < 0 || n.y > 1) n.vy *= -1
-      }
-
-      // đường nối giữa các hạt gần nhau
-      for (let i = 0; i < N; i++) {
-        for (let j = i + 1; j < N; j++) {
-          const a = nodes[i], b = nodes[j]
-          const dx = (a.x - b.x) * w, dy = (a.y - b.y) * h
-          const d = Math.hypot(dx, dy)
-          if (d < 110) {
-            ctx.strokeStyle = `rgba(255,255,255,${(1 - d / 110) * 0.14})`
-            ctx.beginPath()
-            ctx.moveTo(a.x * w, a.y * h)
-            ctx.lineTo(b.x * w, b.y * h)
-            ctx.stroke()
-          }
-        }
-      }
-
-      for (const n of nodes) {
-        const pulse = 0.5 + 0.5 * Math.sin(t * 0.002 + n.x * 20)
-        ctx.fillStyle = n.gold
-          ? `rgba(201,162,39,${0.35 + pulse * 0.5})`
-          : `rgba(255,255,255,${0.18 + pulse * 0.3})`
-        ctx.beginPath()
-        ctx.arc(n.x * w, n.y * h, n.r + pulse * 0.8, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      raf = requestAnimationFrame(draw)
-    }
-    raf = requestAnimationFrame(draw)
-
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [])
-
-  return <canvas ref={ref} className="absolute inset-0 h-full w-full" aria-hidden="true" />
 }
 
 /* ══════════════ CANVAS: sóng quét trạng thái hệ thống ══════════════ */
@@ -273,14 +184,8 @@ export default function PermissionScreen() {
   const [query, setQuery] = useState('')
   const [confirm, setConfirm] = useState(null) // { action }
   const [toasts, setToasts] = useState([])
-  const [clock, setClock] = useState(now())
 
   const logEndRef = useRef(null)
-
-  useEffect(() => {
-    const id = setInterval(() => setClock(now()), 1000)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView()
@@ -487,7 +392,7 @@ export default function PermissionScreen() {
   const verb = confirm?.action === 'revoke' ? 'GỠ QUYỀN' : 'CẤP QUYỀN'
 
   return (
-    <div className="flex min-h-screen flex-col bg-gov-bg">
+    <div className="flex flex-1 flex-col bg-gov-bg">
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
@@ -505,19 +410,18 @@ export default function PermissionScreen() {
         onCancel={() => setConfirm(null)}
       />
 
-      {/* ══ Header: banner quốc hiệu-style ══ */}
+      {/* ══ Banner phân hệ biểu mẫu ══ */}
       <header className="relative overflow-hidden bg-gov-navy-deep text-white">
-        <HeaderCanvas />
-        <div className="relative mx-auto flex max-w-[1600px] items-center gap-5 px-6 py-4">
+        <div className="relative mx-auto flex max-w-[1600px] items-center gap-5 px-6 py-5">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center border-2 border-gov-gold/70 bg-gov-navy">
-            <Landmark className="h-8 w-8 text-gov-gold" />
+            <FileText className="h-8 w-8 text-gov-gold" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium tracking-[0.2em] text-white/60 uppercase">
               Bộ Tư pháp — Trung tâm dữ liệu IOC
             </p>
             <h1 className="truncate text-lg font-bold tracking-wide text-white uppercase">
-              Hệ thống Quản lý Phân quyền Biểu mẫu Báo cáo
+              Phân quyền Biểu mẫu Báo cáo
             </h1>
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/50">
               <Lock className="h-3 w-3" />
@@ -533,10 +437,6 @@ export default function PermissionScreen() {
               <p className={`text-[11px] font-semibold ${isProcessing ? 'text-gov-gold' : 'text-green-400'}`}>
                 {isProcessing ? 'ĐANG THỰC THI...' : 'HOẠT ĐỘNG BÌNH THƯỜNG'}
               </p>
-            </div>
-            <div className="border-l border-white/15 pl-6 text-right">
-              <p className="font-mono text-xl leading-tight font-bold text-gov-gold">{clock}</p>
-              <p className="text-[11px] text-white/50">Giờ hệ thống</p>
             </div>
           </div>
         </div>
@@ -817,9 +717,6 @@ export default function PermissionScreen() {
         </div>
       </main>
 
-      <footer className="border-t-2 border-gov-navy bg-gov-navy-deep px-6 py-3 text-center text-[11px] tracking-wider text-white/50 uppercase">
-        © 2026 Trung tâm dữ liệu IOC — Hệ thống quản lý phân quyền · Bản ghi nội bộ lưu vĩnh viễn phục vụ kiểm toán
-      </footer>
     </div>
   )
 }
