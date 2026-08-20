@@ -2,6 +2,8 @@ appId: com.ioc.react-web
 productName: IOC App
 directories:
   output: release
+  buildResources: build
+icon: build/icon.ico
 files:
   - dist/**/*
   - electron/**/*
