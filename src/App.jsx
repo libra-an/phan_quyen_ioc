@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { FileText, Users, Landmark } from 'lucide-react'
+import { FileText, Users, Landmark, UserCheck } from 'lucide-react'
 import PermissionScreen from './components/PermissionScreen'
 import UserPermissionScreen from './components/UserPermissionScreen'
+import IOCPermissionChecker from './components/IOCPermissionChecker'
 import UpdateChecker from './components/UpdateChecker'
 import './index.css'
 
 const TABS = [
   { id: 'forms', label: 'Phân quyền biểu mẫu', icon: FileText },
   { id: 'users', label: 'Phân quyền người dùng IOC', icon: Users },
+  { id: 'check', label: 'Kiểm tra tài khoản IOC', icon: UserCheck },
 ]
 
 function App() {
@@ -61,7 +63,9 @@ function App() {
 
       {/* ══ Nội dung tab đang chọn ══ */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {tab === 'forms' ? <PermissionScreen /> : <UserPermissionScreen />}
+        {tab === 'forms' ? <PermissionScreen />
+          : tab === 'check' ? <IOCPermissionChecker />
+          : <UserPermissionScreen />}
       </div>
 
       <footer className="shrink-0 border-t border-white/10 bg-gov-navy-deep px-6 py-2 text-center text-[10px] tracking-wider text-white/40 uppercase">

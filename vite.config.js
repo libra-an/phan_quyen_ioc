@@ -17,6 +17,11 @@ export default defineConfig({
         target: 'https://eaccount.kyta.fpt.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-auth/, ''),
+      },
+      '/api-eaccount': {
+        target: 'https://eaccount.kyta.fpt.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-eaccount/, ''),
       }
     }
   }

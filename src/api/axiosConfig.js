@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
     }
 );
 
-async function autoLogin() {
+export async function autoLogin() {
     try {
         const response = await axios.post(LOGIN_URL, ADMIN_ACCOUNT);
         currentAccessToken = response.data.access_token;
