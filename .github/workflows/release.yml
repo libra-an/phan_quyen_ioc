@@ -48,4 +48,4 @@ jobs:
 
       - name: Tóm tắt
         shell: bash
-        run: echo "### Đã phát hành ${NEW_VERSION}: https://github.com/libra-an/phan_quyen_ioc/releases" >> "$GITHUB_STEP_SUMMARY"
+        run: 'echo "### Đã phát hành ${NEW_VERSION} — github.com/libra-an/phan_quyen_ioc/releases" >> "$GITHUB_STEP_SUMMARY"'
