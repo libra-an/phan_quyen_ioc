@@ -5,6 +5,7 @@ import {
   Lock, Activity, ListChecks, Mail, ChevronRight, BadgeCheck,
 } from 'lucide-react'
 import apiClient from '../api/axiosConfig'
+import { logPermissionGrant } from '../api/sheetLogger'
 import { DASHBOARD_LIST } from '../data/dashboards'
 
 const ROLES = [
@@ -264,6 +265,7 @@ export default function PermissionScreen() {
     ])
 
     const failed = []
+    let grantedCount = 0
 
     for (const email of emails.split('\n').map((e) => e.trim()).filter(Boolean)) {
       setLogs((p) => [
@@ -347,12 +349,20 @@ export default function PermissionScreen() {
       )
 
       results.forEach((res) => {
-        if (res.status === 'success')
+        if (res.status === 'success') {
           setLogs((p) => [
             ...p,
             { time: now(), type: 'success', msg: `    ✓ ${res.dashName}` },
           ])
-        else
+          if (action === 'grant') {
+            grantedCount += 1
+            logPermissionGrant({
+              email,
+              formName: res.dashName,
+              role: roleLabel,
+            })
+          }
+        } else {
           setLogs((p) => [
             ...p,
             {
@@ -361,6 +371,7 @@ export default function PermissionScreen() {
               msg: `    ✗ ${res.dashName} - ${res.msg}`,
             },
           ])
+        }
       })
     }
 
@@ -373,6 +384,17 @@ export default function PermissionScreen() {
         msg: `✔ Hoàn thành. Đã xử lý ${totalProcessed} bản ghi.`,
       },
     ])
+
+    if (grantedCount > 0) {
+      setLogs((p) => [
+        ...p,
+        {
+          time: now(),
+          type: 'info',
+          msg: `📤 Gửi ${grantedCount} bản ghi cấp quyền (email, biểu mẫu, thời gian) lên Google Sheet.`,
+        },
+      ])
+    }
 
     if (failed.length > 0) {
       setLogs((p) => [
