@@ -9,6 +9,7 @@ publish:
   provider: github
   owner: libra-an
   repo: phan_quyen_ioc
+  releaseType: release
 win:
   target:
     - nsis

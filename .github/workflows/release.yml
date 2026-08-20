@@ -1,0 +1,51 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-release
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Tự tăng phiên bản patch (1.2.0 -> 1.2.1) và đẩy commit về main.
+      # "[skip ci]" trong message để commit này không kích hoạt lại workflow (tránh vòng lặp).
+      - name: Tăng phiên bản patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          git add package.json package-lock.json
+          git commit -m "release ${NEW_VERSION} [skip ci]"
+          git push origin main
+          echo "NEW_VERSION=${NEW_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Cài dependencies
+        run: npm ci
+
+      - name: Build ứng dụng và xuất bản lên GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run electron:publish
+
+      - name: Tóm tắt
+        shell: bash
+        run: echo "### Đã phát hành ${NEW_VERSION}: https://github.com/libra-an/phan_quyen_ioc/releases" >> "$GITHUB_STEP_SUMMARY"
