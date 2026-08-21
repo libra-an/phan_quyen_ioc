@@ -6,27 +6,32 @@ import {
   ShieldCheck, ShieldX, ListChecks, Users, ClipboardCopy, Ban,
 } from 'lucide-react'
 
-const IOC_POLICY_NAME = 'IOC - CẤP KHU VỰC'
+const IOC_POLICY_NAMES = ['IOC - CẤP KHU VỰC', 'IOC - Lãnh đạo cấp tỉnh']
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 
-const isIocPolicy = (p) => {
-  if (p == null) return false
-  if (typeof p === 'string') return norm(p).includes(norm(IOC_POLICY_NAME))
-  const name = p.policyName ?? p.name ?? ''
-  return norm(name).includes(norm(IOC_POLICY_NAME))
-}
+// Tên rút gọn để hiển thị: "IOC - CẤP KHU VỰC" → "CẤP KHU VỰC"
+const shortLabel = (name) => String(name).replace(/^IOC\s*-\s*/i, '').trim()
+
+// Tóm tắt trạng thái từng nhóm: "CẤP KHU VỰC: ✔ · Lãnh đạo cấp tỉnh: ✘" (— = đơn vị chưa có nhóm)
+const summarizeGroups = (groups) =>
+  (groups ?? [])
+    .map((g) => {
+      const mark = g.state === 'granted' ? '✔' : g.state === 'missing' ? '—' : '✘'
+      return `${shortLabel(g.name)}: ${mark}`
+    })
+    .join(' · ')
 
 // Tách danh sách tài khoản: cách nhau bằng xuống dòng, dấu phẩy, chấm phẩy hoặc khoảng trắng
 const parseEmails = (text) =>
   [...new Set(text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))]
 
 /**
- * Kiểm tra hàng loạt tài khoản đã được phân quyền "IOC - CẤP KHU VỰC" chưa.
+ * Kiểm tra hàng loạt tài khoản đã vào nhóm "IOC - CẤP KHU VỰC" / "IOC - Lãnh đạo cấp tỉnh" chưa.
  * Mỗi tài khoản chạy 3 bước:
  *  1. POST /services/uaa/api/search/userInfoModel  → resourceId + orgIn
- *  2. GET  /services/uaa/api/policies?orgIn=…       → id của policy "IOC - CẤP KHU VỰC"
- *  3. GET  /services/uaa/api/user/find-user-by-id   → đối chiếu policiesList
+ *  2. GET  /services/uaa/api/policies?orgIn=…       → id 2 nhóm IOC của đơn vị
+ *  3. GET  /services/uaa/api/user/find-user-by-id   → đối chiếu policiesList theo từng nhóm
  */
 export default function IOCPermissionChecker() {
   const [text, setText] = useState('')
@@ -55,19 +60,38 @@ export default function IOCPermissionChecker() {
       params: { page: 0, size: 200, orgIn },
     })
     const prows = Array.isArray(res2.data) ? res2.data : (res2.data?.content ?? [])
-    const policy =
-      prows.find((p) => norm(p?.policyName ?? p?.name) === norm(IOC_POLICY_NAME)) ??
-      prows.find(isIocPolicy)
-    if (!policy) throw new Error(`Đơn vị không có quyền "${IOC_POLICY_NAME}"`)
+
+    // Tìm từng nhóm IOC của đơn vị (khớp đúng tên trước, chứa tên sau để bắt biến thể)
+    const groups = IOC_POLICY_NAMES.map((name) => {
+      const policy =
+        prows.find((p) => norm(p?.policyName ?? p?.name) === norm(name)) ??
+        prows.find((p) => norm(p?.policyName ?? p?.name ?? '').includes(norm(name)))
+      return { name, policy: policy ?? null }
+    })
+    if (groups.every((g) => !g.policy))
+      throw new Error('Đơn vị chưa có nhóm "IOC - CẤP KHU VỰC" hay "IOC - Lãnh đạo cấp tỉnh"')
 
     const res3 = await eaccountClient.get('/services/uaa/api/user/find-user-by-id', {
       params: { id: resourceId, orgIn },
     })
     const policiesList = res3.data?.policiesList ?? []
-    const granted = policiesList.some(
-      (p) => (p?.id != null && String(p.id) === String(policy.id)) || isIocPolicy(p)
-    )
-    return { resourceId, orgIn, granted, policiesCount: policiesList.length }
+    const hasPolicy = (policy, name) =>
+      policiesList.some(
+        (p) =>
+          (policy && p?.id != null && String(p.id) === String(policy.id)) ||
+          norm(p?.policyName ?? p?.name ?? '') === norm(name)
+      )
+    const detail = groups.map((g) => ({
+      name: g.name,
+      state: !g.policy ? 'missing' : hasPolicy(g.policy, g.name) ? 'granted' : 'denied',
+    }))
+    return {
+      resourceId,
+      orgIn,
+      groups: detail,
+      granted: detail.some((g) => g.state === 'granted'),
+      policiesCount: policiesList.length,
+    }
   }
 
   async function runBatch() {
