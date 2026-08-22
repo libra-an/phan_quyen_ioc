@@ -334,8 +334,10 @@ export default function PermissionScreen() {
                 }
               )
             } else {
-              await apiClient.put(
-                `/services/ioc-metadata/api/assignments/${dashId}/assign/${foundResourceId}`
+              // Gỡ quyền: DELETE kèm body assigneeId + assignee (PUT sẽ bị từ chối)
+              await apiClient.delete(
+                `/services/ioc-metadata/api/assignments/${dashId}/assign/${foundResourceId}`,
+                { data: { assigneeId: foundResourceId, assignee: email } }
               )
             }
             return { dashName, status: 'success' }
