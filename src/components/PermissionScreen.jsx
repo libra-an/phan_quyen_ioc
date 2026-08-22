@@ -365,7 +365,7 @@ export default function PermissionScreen() {
               phone: userData?.phone,
               orgName: userData?.orgName,
               orgIn: userData?.orgIn,
-              bm: parseDashboardItem(res.dashName).code,
+              bm: parseDashboardItem({ name: res.dashName }).code,
             })
           }
         } else {
