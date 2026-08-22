@@ -273,13 +273,14 @@ export default function PermissionScreen() {
         { time: now(), type: 'info', msg: `  ⏳ Đang tìm kiếm ID cho: ${email}...` },
       ])
       let foundResourceId = null
+      let userData = null
 
       try {
         const searchRes = await apiClient.post(
           '/services/uaa/api/search/userInfoModel',
           { q: email, resource: 'table_user' }
         )
-        const userData = searchRes.data?.[0]
+        userData = searchRes.data?.[0]
         if (userData && userData.resourceId) {
           foundResourceId = String(userData.resourceId)
           setLogs((p) => [
