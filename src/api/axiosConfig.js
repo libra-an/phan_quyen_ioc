@@ -20,6 +20,33 @@ let isRefreshing = false;
 
 export const getAccessToken = () => currentAccessToken;
 
+// Tài khoản thực hiện thao tác: giải mã từ access token (JWT);
+// token thiếu/lỗi thì dùng tài khoản tự động đăng nhập của app
+export function getCurrentAccount() {
+    try {
+        const base64 = currentAccessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64 + '='.repeat((4 - base64.length % 4) % 4)));
+        return payload.user_name || payload.userName || payload.email || payload.sub || ADMIN_ACCOUNT.username;
+    } catch {
+        return ADMIN_ACCOUNT.username;
+    }
+}
+
+// Người thực hiện ghi vào log phân quyền: hostname máy đang chạy app (lấy qua IPC
+// của Electron, cache lại sau lần đầu); chạy bằng trình duyệt thường thì dùng
+// tài khoản từ token làm phương án dự phòng
+let cachedOperator = null;
+export async function getOperatorAccount() {
+    if (cachedOperator) return cachedOperator;
+    try {
+        if (window.electronAPI?.hostname) {
+            cachedOperator = await window.electronAPI.hostname();
+        }
+    } catch { /* bỏ qua, dùng phương án dự phòng bên dưới */ }
+    if (!cachedOperator) cachedOperator = getCurrentAccount();
+    return cachedOperator;
+}
+
 apiClient.interceptors.request.use(config => {
     if (currentAccessToken){
         config.headers['Authorization'] = `Bearer ${currentAccessToken}`;

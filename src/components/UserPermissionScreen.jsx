@@ -6,7 +6,8 @@ import {
 } from 'lucide-react'
 import apiClient from '../api/axiosConfig'
 import eaccountClient from '../api/eaccountApi'
-import { logPermissionGrant } from '../api/sheetLogger'
+import { logUserPermissionGrant } from '../api/sheetLogger'
+import { getOperatorAccount } from '../api/axiosConfig'
 
 /* ══════════════ Nhóm quyền IOC đích — kiểm tra tồn tại trước khi phân quyền ══════════════ */
 const IOC_GROUPS = [
@@ -215,6 +216,7 @@ export default function UserPermissionScreen() {
     setRunning(true)
     setFailedEmails([])
     setStats({ ok: 0, skip: 0, err: 0 })
+    const operator = await getOperatorAccount()
     setLogs(() => [{ time: now(), type: 'info', msg: `→ Bắt đầu ${verb} | ${list.length} tài khoản | Nhóm đích: ${targets.join(' · ')}` }])
 
     let ok = 0, skip = 0, err = 0
@@ -258,10 +260,12 @@ export default function UserPermissionScreen() {
             if (r.status === 'ok') {
               emailOk++
               setLogs((p) => [...p, { time: now(), type: 'success', msg: `  ✓ ${r.policyName}: ${action === 'grant' ? 'đã thêm vào nhóm' : 'đã gỡ khỏi nhóm'}` }])
-              logPermissionGrant({
+              logUserPermissionGrant({
                 email,
-                formName: r.policyName,
-                role: action === 'grant' ? 'Cấp quyền IOC (thêm vào nhóm)' : 'Gỡ quyền IOC (gỡ khỏi nhóm)',
+                group: r.policyName,
+                orgIn: row.orgIn,
+                action: action === 'grant' ? 'Cấp quyền (thêm vào nhóm)' : 'Gỡ quyền (gỡ khỏi nhóm)',
+                account: operator,
               })
             } else {
               emailSkip++
@@ -331,7 +335,7 @@ export default function UserPermissionScreen() {
           </div>
           <div className="min-w-0">
             <p className="text-[11px] font-medium tracking-[0.2em] text-white/60 uppercase">
-              Bộ Tư pháp — Trung tâm dữ liệu IOC
+              FPT — Trung tâm dữ liệu IOC
             </p>
             <h1 className="truncate text-lg font-bold tracking-wide uppercase">Phân quyền Người dùng vào IOC</h1>
             <p className="mt-0.5 truncate text-xs text-white/50">

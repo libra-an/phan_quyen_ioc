@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const os = require('os');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow = null;
@@ -55,6 +56,7 @@ ipcMain.handle('app-info', () => ({
   version: app.getVersion(),
   packaged: app.isPackaged,
 }));
+ipcMain.handle('system:hostname', () => os.hostname());
 
 /* ══════════════ Cửa sổ ứng dụng ══════════════ */
 function createWindow() {

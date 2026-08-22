@@ -198,7 +198,7 @@ export default function IOCPermissionChecker() {
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold tracking-wide uppercase">Kiểm tra tài khoản IOC</h1>
             <p className="mt-0.5 truncate text-xs tracking-wider text-white/60 uppercase">
-              Bộ Tư pháp — Trung tâm dữ liệu IOC
+              FPT — Trung tâm dữ liệu IOC
             </p>
           </div>
           <div className="ml-auto hidden shrink-0 items-center gap-2 border border-gov-gold/40 bg-gov-gold/10 px-3 py-1.5 md:flex">
@@ -269,7 +269,7 @@ export default function IOCPermissionChecker() {
                 </div>
               </form>
               <p className="mt-3 border-l-2 border-gov-gold bg-gov-gold/5 px-3 py-2 text-xs leading-relaxed text-gov-slate">
-                Mỗi tài khoản tra cứu 3 bước: tìm tài khoản → tìm quyền «{IOC_POLICY_NAME}» theo đơn vị →
+                Mỗi tài khoản tra cứu 3 bước: tìm tài khoản → tìm quyền «{IOC_POLICY_NAMES.join('» / «')}» theo đơn vị →
                 đối chiếu danh sách quyền. Tài khoản trùng lặp sẽ tự loại bỏ. Chức năng chỉ đọc, không phân quyền hay thu hồi.
               </p>
             </div>

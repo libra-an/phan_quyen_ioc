@@ -360,6 +360,11 @@ export default function PermissionScreen() {
               email,
               formName: res.dashName,
               role: roleLabel,
+              fullName: userData?.personalName,
+              phone: userData?.phone,
+              orgName: userData?.orgName,
+              orgIn: userData?.orgIn,
+              bm: parseDashboardItem(res.dashName).code,
             })
           }
         } else {
