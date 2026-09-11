@@ -6,14 +6,15 @@ import {
   ShieldCheck, ShieldX, ListChecks, Users, ClipboardCopy, Ban,
 } from 'lucide-react'
 
-const IOC_POLICY_NAMES = ['IOC - CẤP KHU VỰC', 'IOC - Lãnh đạo cấp tỉnh']
-
 const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 
-// Tên rút gọn để hiển thị: "IOC - CẤP KHU VỰC" → "CẤP KHU VỰC"
-const shortLabel = (name) => String(name).replace(/^IOC\s*-\s*/i, '').trim()
+// ✨ MỚI: Nhận diện mọi policy có chứa chữ "IOC"
+const isIOCPolicy = (name) => norm(name).includes('ioc')
 
-// Tóm tắt trạng thái từng nhóm: "CẤP KHU VỰC: ✔ · Lãnh đạo cấp tỉnh: ✘" (— = đơn vị chưa có nhóm)
+// Tên rút gọn để hiển thị: "IOC - CẤP KHU VỰC" → "CẤP KHU VỰC"
+const shortLabel = (name) => String(name).replace(/^IOC\s*[-–—]\s*/i, '').trim()
+
+// Tóm tắt trạng thái từng nhóm
 const summarizeGroups = (groups) =>
   (groups ?? [])
     .map((g) => {
@@ -22,16 +23,16 @@ const summarizeGroups = (groups) =>
     })
     .join(' · ')
 
-// Tách danh sách tài khoản: cách nhau bằng xuống dòng, dấu phẩy, chấm phẩy hoặc khoảng trắng
+// Tách danh sách tài khoản
 const parseEmails = (text) =>
   [...new Set(text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))]
 
 /**
- * Kiểm tra hàng loạt tài khoản đã vào nhóm "IOC - CẤP KHU VỰC" / "IOC - Lãnh đạo cấp tỉnh" chưa.
+ * Kiểm tra hàng loạt tài khoản đã vào nhóm IOC nào chưa.
  * Mỗi tài khoản chạy 3 bước:
  *  1. POST /services/uaa/api/search/userInfoModel  → resourceId + orgIn
- *  2. GET  /services/uaa/api/policies?orgIn=…       → id 2 nhóm IOC của đơn vị
- *  3. GET  /services/uaa/api/user/find-user-by-id   → đối chiếu policiesList theo từng nhóm
+ *  2. GET  /services/uaa/api/policies?orgIn=…       → LỌC ĐỘNG mọi nhóm có chữ "IOC"
+ *  3. GET  /services/uaa/api/user/find-user-by-id   → đối chiếu policiesList
  */
 export default function IOCPermissionChecker() {
   const [text, setText] = useState('')
@@ -41,55 +42,80 @@ export default function IOCPermissionChecker() {
   const stopRef = useRef(false)
 
   const update = (idx, patch) =>
-    setResults(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+    setResults((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
 
   async function checkOne(q) {
+    // ── Bước 1: Tìm tài khoản ──
     const res1 = await apiClient.post('/services/uaa/api/search/userInfoModel', {
       q,
       resource: 'table_user',
     })
-    const rows = Array.isArray(res1.data) ? res1.data : (res1.data?.content ?? res1.data?.data ?? [])
-    const exact = rows.find((r) => norm(r?.email ?? r?.userName ?? r?.login ?? '') === norm(q))
+    const rows = Array.isArray(res1.data)
+      ? res1.data
+      : res1.data?.content ?? res1.data?.data ?? []
+    const exact = rows.find(
+      (r) => norm(r?.email ?? r?.userName ?? r?.login ?? '') === norm(q)
+    )
     const row = exact ?? rows[0]
     if (!row) throw new Error('Không tìm thấy tài khoản')
+
     const resourceId = row.resourceId ?? row.id
     const orgIn = row.orgIn
     if (!resourceId || !orgIn) throw new Error('Kết quả thiếu resourceId/orgIn')
 
+    // ── Bước 2: Lấy danh sách quyền của đơn vị & LỌC ĐỘNG nhóm IOC ──
     const res2 = await eaccountClient.get('/services/uaa/api/policies', {
       params: { page: 0, size: 200, orgIn },
     })
-    const prows = Array.isArray(res2.data) ? res2.data : (res2.data?.content ?? [])
+    const prows = Array.isArray(res2.data)
+      ? res2.data
+      : res2.data?.content ?? []
 
-    // Tìm từng nhóm IOC của đơn vị (khớp đúng tên trước, chứa tên sau để bắt biến thể)
-    const groups = IOC_POLICY_NAMES.map((name) => {
-      const policy =
-        prows.find((p) => norm(p?.policyName ?? p?.name) === norm(name)) ??
-        prows.find((p) => norm(p?.policyName ?? p?.name ?? '').includes(norm(name)))
-      return { name, policy: policy ?? null }
-    })
-    if (groups.every((g) => !g.policy))
-      throw new Error('Đơn vị chưa có nhóm "IOC - CẤP KHU VỰC" hay "IOC - Lãnh đạo cấp tỉnh"')
+    // ✨ MỚI: Tự động tìm TẤT CẢ policy có chữ "IOC" trong tên
+    const iocPolicies = prows.filter((p) =>
+      isIOCPolicy(p?.policyName ?? p?.name)
+    )
 
+    if (iocPolicies.length === 0)
+      throw new Error('Đơn vị chưa có nhóm quyền nào chứa "IOC"')
+
+    const groups = iocPolicies.map((policy) => ({
+      name: policy.policyName ?? policy.name,
+      policy,
+    }))
+
+    // ── Bước 3: Đối chiếu với policiesList của user ──
     const res3 = await eaccountClient.get('/services/uaa/api/user/find-user-by-id', {
       params: { id: resourceId, orgIn },
     })
     const policiesList = res3.data?.policiesList ?? []
+
     const hasPolicy = (policy, name) =>
       policiesList.some(
         (p) =>
-          (policy && p?.id != null && String(p.id) === String(policy.id)) ||
+          (policy &&
+            p?.id != null &&
+            String(p.id) === String(policy.id)) ||
           norm(p?.policyName ?? p?.name ?? '') === norm(name)
       )
+
     const detail = groups.map((g) => ({
       name: g.name,
-      state: !g.policy ? 'missing' : hasPolicy(g.policy, g.name) ? 'granted' : 'denied',
+      state: !g.policy
+        ? 'missing'
+        : hasPolicy(g.policy, g.name)
+          ? 'granted'
+          : 'denied',
     }))
+
     return {
       resourceId,
       orgIn,
       groups: detail,
+      // Danh sách tên nhóm IOC tìm thấy (để hiển thị)
+      iocGroupNames: groups.map((g) => g.name),
       granted: detail.some((g) => g.state === 'granted'),
+      allGranted: detail.every((g) => g.state === 'granted'),
       policiesCount: policiesList.length,
     }
   }
@@ -108,19 +134,27 @@ export default function IOCPermissionChecker() {
       try {
         const r = await checkOne(list[i])
         update(i, {
-          state: r.granted ? 'granted' : 'denied',
+          state: r.allGranted ? 'granted' : r.granted ? 'partial' : 'denied',
           resourceId: r.resourceId,
           orgIn: r.orgIn,
+          iocGroupNames: r.iocGroupNames,
+          groups: r.groups,
           policiesCount: r.policiesCount,
-          note: r.granted ? `Đã có trong ${r.policiesCount} quyền hiện có` : `Chưa có trong ${r.policiesCount} quyền hiện có`,
+          note:
+            r.allGranted
+              ? `Đã có đủ ${r.groups.length} nhóm IOC trong ${r.policiesCount} quyền`
+              : r.granted
+                ? `Có ${r.groups.filter((g) => g.state === 'granted').length}/${r.groups.length} nhóm IOC — ${summarizeGroups(r.groups)}`
+                : `Chưa có nhóm IOC nào trong ${r.policiesCount} quyền`,
         })
       } catch (e) {
         update(i, {
           state: 'error',
-          note: e?.response ? `Lỗi HTTP ${e.response.status}` : (e.message ?? 'Lỗi không xác định'),
+          note: e?.response
+            ? `Lỗi HTTP ${e.response.status}`
+            : e.message ?? 'Lỗi không xác định',
         })
       }
-      // Nghỉ nhẹ giữa các tài khoản để không dồn запрос API
       if (i < list.length - 1 && !stopRef.current) {
         await new Promise((resolve) => setTimeout(resolve, 150))
       }
@@ -128,32 +162,59 @@ export default function IOCPermissionChecker() {
     setRunning(false)
   }
 
-  const stop = () => { stopRef.current = true }
+  const stop = () => {
+    stopRef.current = true
+  }
 
   const copyResults = () => {
     const lines = results
-      .filter((r) => r.state === 'granted' || r.state === 'denied' || r.state === 'error')
-      .map((r) =>
-        `${r.email}\t${r.state === 'granted' ? 'ĐÃ phân quyền IOC' : r.state === 'denied' ? 'CHƯA phân quyền IOC' : `LỖI: ${r.note}`}`
+      .filter(
+        (r) =>
+          r.state === 'granted' ||
+          r.state === 'partial' ||
+          r.state === 'denied' ||
+          r.state === 'error'
       )
+      .map((r) => {
+        const status =
+          r.state === 'granted'
+            ? 'ĐÃ phân quyền IOC (đủ)'
+            : r.state === 'partial'
+              ? `PHÂN QUYỀN MỘT PHẦN: ${summarizeGroups(r.groups)}`
+              : r.state === 'denied'
+                ? 'CHƯA phân quyền IOC'
+                : `LỖI: ${r.note}`
+        return `${r.email}\t${status}`
+      })
     navigator.clipboard?.writeText(lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   /* ── Thống kê ── */
-  const done = results.filter((r) => r.state === 'granted' || r.state === 'denied' || r.state === 'error')
+  const done = results.filter(
+    (r) =>
+      r.state === 'granted' ||
+      r.state === 'partial' ||
+      r.state === 'denied' ||
+      r.state === 'error'
+  )
   const grantedCount = results.filter((r) => r.state === 'granted').length
+  const partialCount = results.filter((r) => r.state === 'partial').length
   const deniedCount = results.filter((r) => r.state === 'denied').length
   const errorCount = results.filter((r) => r.state === 'error').length
-  const progress = results.length ? Math.round((done.length / results.length) * 100) : 0
+  const progress = results.length
+    ? Math.round((done.length / results.length) * 100)
+    : 0
 
   const kpi = (label, value, cls, Icon) => (
     <div className={`flex items-center gap-3 border px-4 py-3 ${cls}`}>
       <Icon className="h-5 w-5 shrink-0" />
       <div className="min-w-0">
         <p className="text-xl leading-none font-bold">{value}</p>
-        <p className="mt-1 text-[10px] font-semibold tracking-wider uppercase opacity-80">{label}</p>
+        <p className="mt-1 text-[10px] font-semibold tracking-wider uppercase opacity-80">
+          {label}
+        </p>
       </div>
     </div>
   )
@@ -168,7 +229,13 @@ export default function IOCPermissionChecker() {
     if (state === 'granted')
       return (
         <span className="inline-flex items-center gap-1.5 bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
-          <ShieldCheck className="h-3.5 w-3.5" /> ĐÃ PHÂN QUYỀN
+          <ShieldCheck className="h-3.5 w-3.5" /> ĐÃ PHÂN QUYỀN (đủ)
+        </span>
+      )
+    if (state === 'partial')
+      return (
+        <span className="inline-flex items-center gap-1.5 bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+          <ShieldCheck className="h-3.5 w-3.5" /> MỘT PHẦN
         </span>
       )
     if (state === 'denied')
@@ -188,7 +255,6 @@ export default function IOCPermissionChecker() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gov-bg">
-
       {/* ══ Banner ══ */}
       <header className="shrink-0 bg-gov-navy-deep px-6 py-4 text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-4">
@@ -196,7 +262,9 @@ export default function IOCPermissionChecker() {
             <UserCheck className="h-7 w-7 text-gov-gold" />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-bold tracking-wide uppercase">Kiểm tra tài khoản IOC</h1>
+            <h1 className="truncate text-lg font-bold tracking-wide uppercase">
+              Kiểm tra tài khoản IOC
+            </h1>
             <p className="mt-0.5 truncate text-xs tracking-wider text-white/60 uppercase">
               FPT — Trung tâm dữ liệu IOC
             </p>
@@ -204,7 +272,7 @@ export default function IOCPermissionChecker() {
           <div className="ml-auto hidden shrink-0 items-center gap-2 border border-gov-gold/40 bg-gov-gold/10 px-3 py-1.5 md:flex">
             <ShieldCheck className="h-4 w-4 text-gov-gold" />
             <span className="text-[10px] font-bold tracking-wider text-gov-gold uppercase">
-              Chỉ đọc — không thay đổi dữ liệu
+              Lọc tự động mọi nhóm chứa "IOC"
             </span>
           </div>
         </div>
@@ -215,7 +283,6 @@ export default function IOCPermissionChecker() {
       {/* ══ Nội dung ══ */}
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-5">
-
           {/* Nhập danh sách tài khoản */}
           <section className="border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center gap-2 border-b-2 border-gov-navy bg-gray-50 px-4 py-3">
@@ -229,7 +296,10 @@ export default function IOCPermissionChecker() {
             </div>
             <div className="px-4 py-4">
               <form
-                onSubmit={(e) => { e.preventDefault(); runBatch() }}
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  runBatch()
+                }}
                 className="flex flex-col gap-3 lg:flex-row"
               >
                 <textarea
@@ -246,9 +316,11 @@ export default function IOCPermissionChecker() {
                     disabled={running || !text.trim()}
                     className="flex items-center justify-center gap-2 border border-gov-navy bg-gov-navy px-4 py-2.5 text-xs font-bold tracking-wider text-white uppercase transition-colors hover:bg-gov-navy-dark disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {running
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <Search className="h-4 w-4" />}
+                    {running ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
                     Kiểm tra
                   </button>
                   {running && (
@@ -269,8 +341,11 @@ export default function IOCPermissionChecker() {
                 </div>
               </form>
               <p className="mt-3 border-l-2 border-gov-gold bg-gov-gold/5 px-3 py-2 text-xs leading-relaxed text-gov-slate">
-                Mỗi tài khoản tra cứu 3 bước: tìm tài khoản → tìm quyền «{IOC_POLICY_NAMES.join('» / «')}» theo đơn vị →
-                đối chiếu danh sách quyền. Tài khoản trùng lặp sẽ tự loại bỏ. Chức năng chỉ đọc, không phân quyền hay thu hồi.
+                <strong className="text-gov-navy">Lọc tự động:</strong> Hệ thống tự động tìm
+                <strong> mọi nhóm quyền có chứa chữ "IOC"</strong> trong đơn vị (không giới hạn
+                2 nhóm cố định). Mỗi tài khoản tra cứu 3 bước: tìm tài khoản → tìm quyền IOC
+                theo đơn vị → đối chiếu danh sách quyền. Chức năng chỉ đọc, không phân quyền
+                hay thu hồi.
               </p>
             </div>
           </section>
@@ -291,11 +366,37 @@ export default function IOCPermissionChecker() {
                   </span>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3 text-gov-navy lg:grid-cols-4">
-                {kpi('Tổng tài khoản', results.length, 'border-gov-navy/20 bg-white text-gov-navy', Users)}
-                {kpi('Đã phân quyền', grantedCount, 'border-green-300 bg-green-50 text-green-800', ShieldCheck)}
-                {kpi('Chưa phân quyền', deniedCount, 'border-red-300 bg-red-50 text-red-800', ShieldX)}
-                {kpi('Lỗi tra cứu', errorCount, 'border-gray-300 bg-gray-100 text-gray-700', AlertTriangle)}
+              <div className="grid grid-cols-2 gap-3 text-gov-navy lg:grid-cols-5">
+                {kpi(
+                  'Tổng tài khoản',
+                  results.length,
+                  'border-gov-navy/20 bg-white text-gov-navy',
+                  Users
+                )}
+                {kpi(
+                  'Đã phân quyền (đủ)',
+                  grantedCount,
+                  'border-green-300 bg-green-50 text-green-800',
+                  ShieldCheck
+                )}
+                {kpi(
+                  'Một phần IOC',
+                  partialCount,
+                  'border-amber-300 bg-amber-50 text-amber-800',
+                  ShieldCheck
+                )}
+                {kpi(
+                  'Chưa phân quyền',
+                  deniedCount,
+                  'border-red-300 bg-red-50 text-red-800',
+                  ShieldX
+                )}
+                {kpi(
+                  'Lỗi tra cứu',
+                  errorCount,
+                  'border-gray-300 bg-gray-100 text-gray-700',
+                  AlertTriangle
+                )}
               </div>
             </section>
           )}
@@ -314,7 +415,11 @@ export default function IOCPermissionChecker() {
                     onClick={copyResults}
                     className="ml-auto flex items-center gap-1.5 border border-gray-300 px-2.5 py-1 text-[10px] font-bold tracking-wider text-gov-slate uppercase hover:bg-gray-100"
                   >
-                    {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+                    {copied ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <ClipboardCopy className="h-3.5 w-3.5" />
+                    )}
                     {copied ? 'Đã copy' : 'Copy kết quả'}
                   </button>
                 )}
@@ -326,26 +431,80 @@ export default function IOCPermissionChecker() {
                       <th className="px-4 py-2.5 font-semibold">#</th>
                       <th className="px-4 py-2.5 font-semibold">Tài khoản</th>
                       <th className="px-4 py-2.5 font-semibold">Kết quả</th>
-                      <th className="hidden px-4 py-2.5 font-semibold lg:table-cell">resourceId</th>
-                      <th className="hidden px-4 py-2.5 font-semibold xl:table-cell">orgIn</th>
+                      <th className="hidden px-4 py-2.5 font-semibold lg:table-cell">
+                        Các nhóm IOC
+                      </th>
+                      <th className="hidden px-4 py-2.5 font-semibold lg:table-cell">
+                        resourceId
+                      </th>
+                      <th className="hidden px-4 py-2.5 font-semibold xl:table-cell">
+                        orgIn
+                      </th>
                       <th className="px-4 py-2.5 font-semibold">Ghi chú</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {results.map((r, i) => (
-                      <tr key={r.email} className={r.state === 'granted' ? 'bg-green-50/50' : r.state === 'denied' ? 'bg-red-50/40' : ''}>
+                      <tr
+                        key={r.email}
+                        className={
+                          r.state === 'granted'
+                            ? 'bg-green-50/50'
+                            : r.state === 'partial'
+                              ? 'bg-amber-50/40'
+                              : r.state === 'denied'
+                                ? 'bg-red-50/40'
+                                : ''
+                        }
+                      >
                         <td className="px-4 py-2.5 text-xs text-gray-400">{i + 1}</td>
-                        <td className="max-w-[220px] truncate px-4 py-2.5 font-medium text-gov-slate" title={r.email}>
+                        <td
+                          className="max-w-[220px] truncate px-4 py-2.5 font-medium text-gov-slate"
+                          title={r.email}
+                        >
                           {r.email}
                         </td>
                         <td className="px-4 py-2.5">{badge(r.state)}</td>
+                        <td className="hidden px-4 py-2.5 lg:table-cell">
+                          {r.iocGroupNames ? (
+                            <div className="flex flex-wrap gap-1">
+                              {r.iocGroupNames.map((name) => {
+                                const g = r.groups?.find((g) => g.name === name)
+                                return (
+                                  <span
+                                    key={name}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold ${
+                                      g?.state === 'granted'
+                                        ? 'bg-green-100 text-green-800'
+                                        : g?.state === 'denied'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-600'
+                                    }`}
+                                    title={name}
+                                  >
+                                    {g?.state === 'granted' ? '✔' : g?.state === 'denied' ? '✘' : '—'}
+                                    {shortLabel(name)}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td className="hidden px-4 py-2.5 font-mono text-xs text-gray-500 lg:table-cell">
                           {r.resourceId ?? '—'}
                         </td>
-                        <td className="hidden max-w-[200px] truncate px-4 py-2.5 font-mono text-xs text-gray-500 xl:table-cell" title={r.orgIn}>
+                        <td
+                          className="hidden max-w-[200px] truncate px-4 py-2.5 font-mono text-xs text-gray-500 xl:table-cell"
+                          title={r.orgIn}
+                        >
                           {r.orgIn ?? '—'}
                         </td>
-                        <td className="max-w-[240px] truncate px-4 py-2.5 text-xs text-gray-500" title={r.note}>
+                        <td
+                          className="max-w-[280px] truncate px-4 py-2.5 text-xs text-gray-500"
+                          title={r.note}
+                        >
                           {r.note || '—'}
                         </td>
                       </tr>
