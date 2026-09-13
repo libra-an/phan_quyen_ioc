@@ -1,0 +1,19 @@
+HTTP/1.1 200 OK
+Date: Sun, 13 Sep 2026 14:37:46 GMT
+Content-Type: application/json;charset=UTF-8
+Connection: keep-alive
+Content-Encoding: gzip
+Expires: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+X-XSS-Protection: 1; mode=block
+Pragma: no-cache
+Referrer-Policy: no-referrer
+Content-Security-Policy: default-src 'self'; img-src 'self' data:;
+X-Total-Count: 10000
+X-Content-Type-Options: nosniff
+Permissions-Policy: geolocation=(self), microphone=()
+Link: <http://100.96.19.95:9999/api/search/userInfoModel?page=2&size=2>; rel="next",<http://100.96.19.95:9999/api/search/userInfoModel?page=0&size=2>; rel="prev",<http://100.96.19.95:9999/api/search/userInfoModel?page=4999&size=2>; rel="last",<http://100.96.19.95:9999/api/search/userInfoModel?page=0&size=2>; rel="first"
+Strict-Transport-Security: max-age=15724800; includeSubDomains
+Set-Cookie: cookiesession1=678A3E14926AD95E0F15BCFF894D65B8;Expires=Mon, 13 Sep 2027 14:37:46 GMT;Path=/;HttpOnly
+content-length: 1125
+
