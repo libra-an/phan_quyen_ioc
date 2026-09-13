@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { FileText, Users, Landmark, UserCheck, BarChart3, Lock } from 'lucide-react'
+import { FileText, Users, Landmark, UserCheck, BarChart3, Lock, ListChecks } from 'lucide-react'
 import PermissionScreen from './components/PermissionScreen'
 import UserPermissionScreen from './components/UserPermissionScreen'
 import IOCPermissionChecker from './components/IOCPermissionChecker'
 import ReportPermissionScreen from './components/ReportPermissionScreen'
 import ReportAccessGate from './components/ReportAccessGate'
 import UpdateChecker from './components/UpdateChecker'
+import FormPermissionChecker from './components/FormPermissionChecker'
 import './index.css'
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'reports', label: 'Phân quyền biểu đồ báo cáo', icon: BarChart3 },
   { id: 'users', label: 'Phân quyền người dùng IOC', icon: Users },
   { id: 'check', label: 'Kiểm tra tài khoản IOC', icon: UserCheck },
+  { id: 'checkforms', label: 'Kiểm tra quyền biểu mẫu', icon: ListChecks },
 ]
 
 function App() {
@@ -81,6 +83,7 @@ function App() {
               ? <ReportPermissionScreen />
               : <ReportAccessGate onUnlock={unlockReport} onBack={() => setTab('forms')} />
             : tab === 'check' ? <IOCPermissionChecker />
+            : tab === 'checkforms' ? <FormPermissionChecker />
             : <UserPermissionScreen />}
       </div>
 
